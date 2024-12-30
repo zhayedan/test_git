@@ -1,22 +1,54 @@
 import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 
-# Example data for visualization
-results = {
-    "Linear Regression": {"MAE": 2.17, "MSE": 7.81, "R2": 0.63},
-    "Decision Tree": {"MAE": 2.07, "MSE": 7.41, "R2": 0.65},
-    "Random Forest": {"MAE": 1.92, "MSE": 7.13, "R2": 0.66},
+# Load dataset
+data = pd.read_csv("housingdata.csv")
+
+# Fill missing values
+data = data.fillna(data.mean())
+
+# Remove outliers using IQR
+Q1 = data.quantile(0.25)
+Q3 = data.quantile(0.75)
+IQR = Q3 - Q1
+data = data[~((data < (Q1 - 1.5 * IQR)) | (data > (Q3 + 1.5 * IQR))).any(axis=1)]
+
+# Define features and target
+X = data.drop("MEDV", axis=1)
+y = data["MEDV"]
+
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Initialize models
+models = {
+    "Linear Regression": LinearRegression(),
+    "Decision Tree": DecisionTreeRegressor(random_state=42),
+    "Random Forest": RandomForestRegressor(random_state=42),
 }
 
-# Convert results to a DataFrame for visualization
-results_df = pd.DataFrame(results).T  # Transpose for easier visualization
+# Train and evaluate models
+results = {}
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    predictions = model.predict(X_test)
+    results[name] = {
+        "MAE": mean_absolute_error(y_test, predictions),
+        "MSE": mean_squared_error(y_test, predictions),
+        "R2": r2_score(y_test, predictions),
+    }
 
-# Plotting the results
-results_df[["MAE", "MSE", "R2"]].plot(kind="bar", figsize=(10, 6), alpha=0.8)
-plt.title("Model Performance Comparison", fontsize=16)
-plt.ylabel("Score", fontsize=12)
-plt.xlabel("Model", fontsize=12)
-plt.xticks(rotation=0)  # Keep model names horizontal
-plt.legend(title="Metrics", fontsize=10)
-plt.grid(axis="y", linestyle="--", alpha=0.7)
-plt.show()  # This is essential for rendering the plot in VS Code
+# Display results
+results_df = pd.DataFrame(results).T
+print(results_df)
+
+# Visualize results
+results_df[["MAE", "MSE", "R2"]].plot(kind="bar", figsize=(10, 6))
+plt.title("Model Comparison")
+plt.ylabel("Scores")
+plt.show()
